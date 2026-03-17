@@ -1,0 +1,11 @@
+{
+  "train_start": "2022-07-08",
+  "train_end": "2024-11-25",
+  "val_start": "2024-11-26",
+  "val_end": "2025-08-22",
+  "test_start": "2025-08-25",
+  "test_end": "2026-03-17",
+  "train_days": 585,
+  "val_days": 180,
+  "test_days": 135
+}
