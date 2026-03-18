@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta http-equiv="refresh" content="60">
+    <title>RLM 가상투자</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f23;color:#c0c0d0;padding:10px;max-width:800px;margin:0 auto}
+        .header{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #2a2a4a;margin-bottom:16px}
+        .header h1{font-size:1.2em;color:#fff}
+        .badge{padding:4px 12px;border-radius:12px;font-size:0.75em;font-weight:bold}
+        .badge-on{background:#00d26a33;color:#00d26a}
+        .badge-off{background:#f9267233;color:#f92672}
+        .card{background:#1a1a3e;border-radius:10px;padding:16px;margin-bottom:12px}
+        .hero{text-align:center;padding:24px 16px;background:linear-gradient(135deg,#1a1a3e 0%,#0f3460 100%);border-radius:12px;margin-bottom:14px}
+        .hero .total{font-size:2.4em;font-weight:bold;color:#fff;margin:8px 0}
+        .hero .sub{font-size:1em}
+        .hero .label{font-size:0.8em;color:#888}
+        .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+        @media(min-width:600px){.grid{grid-template-columns:repeat(4,1fr)}}
+        .metric{background:#12122a;border-radius:8px;padding:12px;text-align:center}
+        .metric .value{font-size:1.2em;font-weight:bold;color:#fff}
+        .metric .label{font-size:0.7em;color:#666;margin-top:3px}
+        .green{color:#00d26a}.red{color:#f92672}.cyan{color:#00d4ff}
+        .section-title{font-size:0.9em;color:#00d4ff;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid #1a1a3e}
+        .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+        table{width:100%;border-collapse:collapse;font-size:0.78em}
+        th{background:#12122a;padding:8px 6px;text-align:center;color:#888;font-weight:normal}
+        td{padding:6px;text-align:center;border-bottom:1px solid #0f0f23}
+        .empty{text-align:center;padding:24px;color:#555;font-size:0.9em}
+        .param-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;font-size:0.82em}
+        .param-grid dt{color:#666}.param-grid dd{color:#ccc;font-weight:bold}
+        .footer{text-align:center;padding:16px;font-size:0.7em;color:#444}
+        #clock{font-size:0.7em;color:#555;margin-top:4px}
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+    <h1>RLM 가상투자</h1>
+    <div style="text-align:right">
+        {% if market and market.filter_status %}
+        <span class="badge {{ 'badge-on' if market.filter_status == 'ON' else 'badge-off' }}">
+            시장 {{ market.filter_status }}
+        </span>
+        <div style="font-size:0.7em;color:#666;margin-top:3px">
+            KOSPI {{ "{:,.0f}".format(market.kospi_close) }} | MA120 {{ "{:,.0f}".format(market.ma120) }}
+        </div>
+        {% else %}
+        <span class="badge badge-off">데이터 없음</span>
+        {% endif %}
+        <div id="clock"></div>
+    </div>
+</div>
+
+<!-- 총 자산 Hero -->
+{% if portfolio %}
+<div class="hero">
+    <div class="label">총 자산</div>
+    <div class="total">{{ "{:,.0f}".format(portfolio.total_value) }}원</div>
+    <div class="sub {{ 'green' if portfolio.return_pct >= 0 else 'red' }}">
+        {{ "{:+.2f}".format(portfolio.return_pct) }}%
+        ({{ "{:+,.0f}".format(portfolio.total_value - 5000000) }}원)
+    </div>
+</div>
+
+<!-- 요약 카드 -->
+<div class="grid">
+    <div class="metric">
+        <div class="value">{{ "{:,.0f}".format(portfolio.cash) }}원</div>
+        <div class="label">현금</div>
+    </div>
+    <div class="metric">
+        <div class="value">{{ "{:,.0f}".format(portfolio.stock_value) }}원</div>
+        <div class="label">주식평가</div>
+    </div>
+    <div class="metric">
+        <div class="value">{{ portfolio.num_positions }}종목</div>
+        <div class="label">보유 종목수</div>
+    </div>
+    <div class="metric">
+        <div class="value {{ 'green' if portfolio.return_pct >= 0 else 'red' }}">
+            {{ "{:+.2f}".format(portfolio.return_pct) }}%
+        </div>
+        <div class="label">수익률</div>
+    </div>
+</div>
+
+<!-- 보유 종목 -->
+<div class="section-title">보유 종목</div>
+<div class="card">
+    {% if portfolio.positions and portfolio.positions|length > 0 %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>종목</th><th>매수가</th><th>현재가</th><th>수량</th><th>평가금</th><th>수익률</th></tr>
+            </thead>
+            <tbody>
+                {% for p in portfolio.positions %}
+                <tr>
+                    <td style="text-align:left">{{ p.name }}<br><span style="color:#555;font-size:0.85em">{{ p.code }}</span></td>
+                    <td>{{ "{:,.0f}".format(p.entry_price) }}</td>
+                    <td>{{ "{:,.0f}".format(p.current_price) if p.current_price else '-' }}</td>
+                    <td>{{ p.shares }}</td>
+                    <td>{{ "{:,.0f}".format(p.current_value) if p.current_value else '-' }}</td>
+                    <td>
+                        {% if p.pnl_pct is defined %}
+                            <span class="{{ 'green' if p.pnl_pct >= 0 else 'red' }}">{{ "{:+.2f}".format(p.pnl_pct) }}%</span>
+                        {% else %}
+                            <span style="color:#555">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty">보유 종목 없음 (100% 현금)</div>
+    {% endif %}
+</div>
+
+<!-- 최근 거래 -->
+<div class="section-title">최근 거래</div>
+<div class="card">
+    {% if trades and trades|length > 0 %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>날짜</th><th>종목</th><th>구분</th><th>가격</th><th>수량</th><th>금액</th><th>손익</th><th>사유</th></tr>
+            </thead>
+            <tbody>
+                {% for t in trades[:15] %}
+                <tr>
+                    <td style="font-size:0.85em">{{ t.date }}</td>
+                    <td>{{ t.name or t.code }}</td>
+                    <td>
+                        {% if t.side == 'BUY' %}<span class="cyan">매수</span>
+                        {% elif t.pnl and t.pnl > 0 %}<span class="green">매도</span>
+                        {% else %}<span class="red">매도</span>{% endif %}
+                    </td>
+                    <td>{{ "{:,.0f}".format(t.price) }}</td>
+                    <td>{{ t.shares }}</td>
+                    <td>{{ "{:,.0f}".format(t.amount) }}</td>
+                    <td>
+                        {% if t.pnl is defined and t.pnl is not none and t.pnl != 0 %}
+                        <span class="{{ 'green' if t.pnl > 0 else 'red' }}">{{ "{:+,.0f}".format(t.pnl) }}</span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td style="text-align:left;font-size:0.8em;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.reason or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty">거래 내역 없음</div>
+    {% endif %}
+</div>
+
+{% else %}
+<div class="card"><div class="empty">포트폴리오 데이터 없음. 시스템을 시작해주세요.</div></div>
+{% endif %}
+
+<!-- 전략 파라미터 -->
+<div class="section-title">전략 파라미터</div>
+<div class="card">
+    <dl class="param-grid">
+        <dt>전략</dt><dd>Robust Lazy Momentum</dd>
+        <dt>MA 기간</dt><dd>120일</dd>
+        <dt>임계값</dt><dd>×0.99 + 기울기>0</dd>
+        <dt>스코어</dt><dd>12-1M×0.6 + 6-1M×0.4</dd>
+        <dt>급락 필터</dt><dd>20일 ≤-12% 제외</dd>
+        <dt>트레일링 스탑</dt><dd>고점 대비 -10%</dd>
+        <dt>종목수</dt><dd>10종목 × 10%</dd>
+        <dt>리밸런싱</dt><dd>월 1회 (월말)</dd>
+    </dl>
+</div>
+
+<div class="footer">RLM v1.0 | 가상투자 시뮬레이션 | 60초 자동 새로고침</div>
+
+<script>
+function updateClock(){
+    var el=document.getElementById('clock');
+    if(el) el.textContent=new Date().toLocaleString('ko-KR');
+}
+updateClock();
+setInterval(updateClock,1000);
+</script>
+</body>
+</html>
